@@ -11,7 +11,7 @@ from health_check import start_health_check
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 🔰 Environment Variables (Filled)
+# 🔰 Environment Variables
 API_ID = "27788368"
 API_HASH = "9df7e9ef3d7e4145270045e5e43e1081"
 BOT_TOKEN = "7725707727:AAFtx6Sy-q6GgB9eaPoN2-oYPx2D6hjnc1g"
@@ -25,15 +25,15 @@ mongo = MongoClient(MONGO_URL)
 db = mongo["VideoBot"]
 collection = db["videos"]
 
-# 🔹 Function to Fetch & Send a Random Video (Fix: No Forward Tag)
+# 🔹 Function to Fetch & Send a Random Video
 async def send_random_video(client, chat_id):
     video_docs = list(collection.find())
     if not video_docs:
         await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
         return
-    
+
     random_video = random.choice(video_docs)
-    
+
     try:
         video_msg = await client.get_messages(CHANNEL_ID, random_video["message_id"])
         if video_msg and video_msg.video:
@@ -48,14 +48,14 @@ async def send_random_video(client, chat_id):
         logger.error(f"❌ Error sending video: {e}")
         await client.send_message(chat_id, "❌ Error: Failed to send video.")
 
-# 🔹 Command to Index Videos (Owner Only) – Fixed Iteration
+# 🔹 Command to Index Videos (Owner Only) – Fixed for Bots
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
     await message.reply_text("🔄 Indexing videos... This may take some time.")
-    
+
     indexed_count = 0
-    async for msg in client.get_chat_history(CHANNEL_ID, limit=1000):  # ✅ Fixed Iteration
-        if msg.video:
+    try:
+        async for msg in client.search_messages(CHANNEL_ID, filter="video"):
             collection.update_one(
                 {"message_id": msg.id},  
                 {"$set": {"message_id": msg.id}}, 
@@ -63,11 +63,15 @@ async def index_videos(client, message):
             )
             indexed_count += 1
 
-    if indexed_count > 0:
-        await message.reply_text(f"✅ Indexing completed! {indexed_count} videos added.")
-        await client.send_message(OWNER_ID, f"📢 Successfully indexed {indexed_count} videos!")
-    else:
-        await message.reply_text("⚠ No videos found in the channel. Make sure the bot has access!")
+        if indexed_count > 0:
+            await message.reply_text(f"✅ Indexing completed! {indexed_count} videos added.")
+            await client.send_message(OWNER_ID, f"📢 Successfully indexed {indexed_count} videos!")
+        else:
+            await message.reply_text("⚠ No videos found in the channel. Make sure the bot has access!")
+
+    except Exception as e:
+        logger.error(f"❌ Indexing Error: {e}")
+        await message.reply_text("❌ Error during indexing. Check logs.")
 
 # 🔹 Start Command with Inline Button
 @bot.on_message(filters.command("start"))
