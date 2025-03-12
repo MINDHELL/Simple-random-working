@@ -25,7 +25,7 @@ mongo = MongoClient(MONGO_URL)
 db = mongo["VideoBot"]
 collection = db["videos"]
 
-# 🔰 Function to Fetch & Send a Random Video Without Forward Tag
+# 🔰 Fetch & Send a Random Video Without Forward Tag
 async def send_random_video(client, chat_id):
     video_docs = list(collection.find())
     if not video_docs:
@@ -39,21 +39,24 @@ async def send_random_video(client, chat_id):
         await client.send_message(chat_id, "❌ Error: Failed to send video.")
         logger.error(f"Error sending video: {e}")
 
-# 🔰 Command to Index Videos (Owner Only)
+# 🔰 Index Videos (Fixed)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
     await message.reply_text("🔄 Indexing videos... This may take some time.")
 
     indexed_count = 0
+    max_id = await client.get_messages(CHANNEL_ID, 1)  # ✅ Get latest message ID
+    if not max_id:
+        await message.reply_text("⚠ Failed to fetch channel messages. Check bot permissions!")
+        return
+
+    message_ids = list(range(1, max_id.id + 1))  # ✅ Generate IDs from 1 to latest
+    chunk_size = 100  # ✅ Fetch 100 messages per batch
 
     try:
-        # ✅ Get Last Message ID Dynamically
-        chat = await client.get_chat(CHANNEL_ID)
-        last_message_id = chat.last_message_id
-
-        for message_id in range(1, last_message_id + 1):
-            try:
-                msg = await client.get_messages(CHANNEL_ID, message_id)
+        for i in range(0, len(message_ids), chunk_size):
+            messages = await client.get_messages(CHANNEL_ID, message_ids[i:i+chunk_size])
+            for msg in messages:
                 if msg and msg.video:
                     collection.update_one(
                         {"message_id": msg.id},
@@ -61,8 +64,6 @@ async def index_videos(client, message):
                         upsert=True
                     )
                     indexed_count += 1
-            except Exception:
-                continue  # Skip deleted or missing messages
 
         if indexed_count > 0:
             await message.reply_text(f"✅ Indexing completed! {indexed_count} videos added.")
