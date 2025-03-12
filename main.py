@@ -33,26 +33,26 @@ async def send_random_video(client, chat_id):
         return
     
     random_video = random.choice(video_docs)
-    file_id = random_video.get("file_id")  # ✅ Ensure we have file_id
+    file_id = random_video.get("file_id")
     if file_id:
         await client.send_video(chat_id, video=file_id, caption="🎥 Here's your random video!")
     else:
         await client.send_message(chat_id, "⚠ Error: This video is missing a file_id.")
 
-# 🔰 Command to Index Videos (Owner Only)
+# 🔰 Fixed `/index` Command (Now Works for All Channels)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
     try:
         await message.reply_text("🔄 Indexing videos... Please wait.")
         indexed_count = 0
 
-        async for msg in client.get_chat_history(CHANNEL_ID, limit=1000):
+        async for msg in client.iter_messages(CHANNEL_ID, limit=1000):
             if msg.video:
                 collection.update_one(
                     {"message_id": msg.id},
                     {"$set": {
                         "message_id": msg.id,
-                        "file_id": msg.video.file_id  # ✅ Save file_id for direct sending
+                        "file_id": msg.video.file_id
                     }},
                     upsert=True
                 )
