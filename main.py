@@ -28,17 +28,17 @@ collection = db["videos"]
 # 🔰 Function to fetch & send a random video
 async def send_random_video(client, chat_id):
     video_docs = list(collection.find())
-    
+
     if not video_docs:
         await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
         return
 
     random_video = random.choice(video_docs)
-    
+
     await client.send_video(
         chat_id=chat_id, 
         video=random_video["file_id"],  # ✅ Send video without forward tag
-        caption=random_video["title"] if "title" in random_video else "🎥 Random Video"
+        caption=random_video.get("title", "🎥 Random Video")
     )
 
 # 🔰 Command to index videos (Owner Only)
@@ -49,9 +49,8 @@ async def index_videos(client, message):
     indexed_count = 0
 
     # ✅ Use iter_history() to safely fetch up to 1000 messages
-    async for msg in client.iter_history(CHANNEL_ID, limit=1000):
+    async for msg in client.get_chat_history(CHANNEL_ID, limit=1000):
         if msg.video:
-            # ✅ Store message_id & caption/title
             collection.update_one(
                 {"file_id": msg.video.file_id},  
                 {"$set": {
@@ -73,12 +72,13 @@ async def index_videos(client, message):
 @bot.on_message(filters.command("start"))
 async def start(client, message):
     keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("🎥 Get Random Video")]], resize_keyboard=True
+        [[KeyboardButton("🎥 Get Random Video")]], 
+        resize_keyboard=True, one_time_keyboard=False
     )
     await message.reply_text("Welcome! Use the button below to get a random video:", reply_markup=keyboard)
 
-# 🔰 Listen for Button Click via Text Message
-@bot.on_message(filters.text & filters.regex("🎥 Get Random Video"))
+# 🔰 Listen for Button Click via Filters.regex (Case-Insensitive)
+@bot.on_message(filters.text & filters.regex("(?i)^🎥 Get Random Video$"))
 async def random_video_command(client, message):
     await send_random_video(client, message.chat.id)
 
