@@ -19,41 +19,55 @@ MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@clus
 CHANNEL_ID = int(os.getenv("CHANNEL_ID", "-1002492623985"))
 OWNER_ID = int(os.getenv("OWNER_ID", "6860316927"))
 
-# 🔰 Initialize Bot & Database
-bot = Client("video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-mongo = MongoClient(MONGO_URL)
-db = mongo["VideoBot"]
-collection = db["videos"]
+# ✅ Initialize Bot
+bot = Client("random_video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# 🔰 Function to Fetch & Send a Random Video
-async def send_random_video(client, chat_id):
-    video_docs = list(collection.find())
-    if not video_docs:
-        await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
-        return
-    
-    random_video = random.choice(video_docs)
-    file_id = random_video.get("file_id")
-    if file_id:
-        await client.send_video(chat_id, video=file_id, caption="🎥 Here's your random video!")
-    else:
-        await client.send_message(chat_id, "⚠ Error: This video is missing a file_id.")
+# ✅ Setup MongoDB
+client = pymongo.MongoClient(MONGO_URL)
+db = client["TelegramBot"]
+collection = db["Videos"]
 
-# 🔰 Fixed `/index` Command (Now Works for All Channels)
+# ✅ Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ✅ Keyboard
+main_keyboard = ReplyKeyboardMarkup(
+    [["🎥 Get Random Video"], ["📁 Index Videos"]],
+    resize_keyboard=True
+)
+
+
+# ✅ /start Command
+@bot.on_message(filters.command("start"))
+async def start_command(client, message):
+    await message.reply_text(
+        "👋 Welcome! Use the buttons below to get a random video or index videos.",
+        reply_markup=main_keyboard
+    )
+
+
+# ✅ /index Command (Fixed)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
     try:
         await message.reply_text("🔄 Indexing videos... Please wait.")
+
+        # Fetch the latest message in the channel
+        last_message = await client.get_messages(CHANNEL_ID, limit=1)
+        if not last_message:
+            await message.reply_text("❌ No messages found in the channel.")
+            return
+        
+        last_msg_id = last_message[0].id
         indexed_count = 0
 
-        async for msg in client.iter_messages(CHANNEL_ID, limit=1000):
-            if msg.video:
+        for msg_id in range(last_msg_id, 0, -1):
+            msg = await client.get_messages(CHANNEL_ID, msg_id)
+            if msg and msg.video:
                 collection.update_one(
                     {"message_id": msg.id},
-                    {"$set": {
-                        "message_id": msg.id,
-                        "file_id": msg.video.file_id
-                    }},
+                    {"$set": {"message_id": msg.id, "file_id": msg.video.file_id}},
                     upsert=True
                 )
                 indexed_count += 1
@@ -61,23 +75,31 @@ async def index_videos(client, message):
         await message.reply_text(f"✅ Indexing completed! {indexed_count} videos added.")
 
     except Exception as e:
+        logger.error(f"Error in indexing: {str(e)}")
         await message.reply_text(f"❌ Error: {str(e)}")
 
-# 🔰 Start Command with Reply Keyboard
-@bot.on_message(filters.command("start"))
-async def start(client, message):
-    keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("🎥 Get Random Video")]],
-        resize_keyboard=True
-    )
-    await message.reply_text("Welcome! Click the button below to get a random video:", reply_markup=keyboard)
 
-# 🔰 Handle Reply Keyboard Button Press
+# ✅ Get Random Video (Reply Keyboard)
 @bot.on_message(filters.text & filters.regex("🎥 Get Random Video"))
-async def random_video_command(client, message):
-    await send_random_video(client, message.chat.id)
+async def send_random_video(client, message):
+    try:
+        total_videos = collection.count_documents({})
+        if total_videos == 0:
+            await message.reply_text("❌ No videos found in the database.")
+            return
 
-# 🔰 Run the Bot
+        random_video = collection.find().limit(1).skip(random.randint(0, total_videos - 1)).next()
+        await client.send_video(
+            chat_id=message.chat.id,
+            video=random_video["file_id"],
+            caption="Here's your random video! 🎥"
+        )
+
+    except Exception as e:
+        logger.error(f"Error sending random video: {str(e)}")
+        await message.reply_text("❌ An error occurred while fetching a video.")
+
+
+# ✅ Start Bot
 if __name__ == "__main__":
-    threading.Thread(target=start_health_check, daemon=True).start()
     bot.run()
