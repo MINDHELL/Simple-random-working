@@ -8,14 +8,14 @@ from pymongo import MongoClient
 logging.basicConfig(level=logging.INFO)
 
 # ✅ Your API variables
-API_ID = 22295141
-API_HASH = "94f465fa81e524caed32759c66bcb1b2"
-BOT_TOKEN = "6375581346:AAEmYrYqOPP-sHvXhDgMyviAHD4q8bw1xLU"
-MONGO_URI = "mongodb+srv://root:root@cluster0.hkmjddt.mongodb.net/?retryWrites=true&w=majority"
+API_ID = "27788368"
+API_HASH = "9df7e9ef3d7e4145270045e5e43e1081"
+BOT_TOKEN = "7725707727:AAFtx6Sy-q6GgB9eaPoN2-oYPx2D6hjnc1g"
+MONGO_URI = "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 DB_NAME = "video_bot"
 COLLECTION_NAME = "videos"
-CHANNEL_ID = -1002130948292  # ✅ Your Telegram channel ID
-OWNER_ID = 5147480370  # ✅ Your Telegram user ID
+CHANNEL_ID = "-1002492623985"  # ✅ Your Telegram channel ID
+OWNER_ID = "6860316927"  # ✅ Your Telegram user ID
 
 # ✅ Initialize bot
 bot = Client("video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
