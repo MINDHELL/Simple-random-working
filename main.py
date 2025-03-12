@@ -3,7 +3,7 @@ import logging
 import random
 import threading
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
 from pymongo import MongoClient
 from health_check import start_health_check
 
@@ -28,27 +28,37 @@ collection = db["videos"]
 # 🔰 Function to fetch & send a random video
 async def send_random_video(client, chat_id):
     video_docs = list(collection.find())
+    
     if not video_docs:
         await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
         return
+
     random_video = random.choice(video_docs)
-    await client.forward_messages(chat_id=chat_id, from_chat_id=CHANNEL_ID, message_ids=random_video["message_id"])
+    
+    await client.send_video(
+        chat_id=chat_id, 
+        video=random_video["file_id"],  # ✅ Send video without forward tag
+        caption=random_video["title"] if "title" in random_video else "🎥 Random Video"
+    )
 
 # 🔰 Command to index videos (Owner Only)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
     await message.reply_text("🔄 Indexing videos... This may take some time.")
 
-    # ✅ Get last 1000 messages safely
     indexed_count = 0
-    message_ids = list(range(1, 1001))  # Adjust this if needed
-    messages = await client.get_messages(CHANNEL_ID, message_ids)
 
-    for msg in messages:
-        if msg and msg.video:
+    # ✅ Use iter_history() to safely fetch up to 1000 messages
+    async for msg in client.iter_history(CHANNEL_ID, limit=1000):
+        if msg.video:
+            # ✅ Store message_id & caption/title
             collection.update_one(
-                {"message_id": msg.id},  # ✅ Fixed `msg.id`
-                {"$set": {"message_id": msg.id}}, 
+                {"file_id": msg.video.file_id},  
+                {"$set": {
+                    "file_id": msg.video.file_id,  
+                    "message_id": msg.id,  
+                    "title": msg.caption or "Untitled Video"
+                }}, 
                 upsert=True
             )
             indexed_count += 1
@@ -59,19 +69,18 @@ async def index_videos(client, message):
     else:
         await message.reply_text("⚠ No videos found in the channel. Make sure the bot has access!")
 
-# 🔰 Start Command with Inline Button
+# 🔰 Start Command with Reply Keyboard Button
 @bot.on_message(filters.command("start"))
 async def start(client, message):
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎥 Get Random Video", callback_data="get_random_video")]
-    ])
-    await message.reply_text("Welcome! Click the button below to get a random video:", reply_markup=keyboard)
+    keyboard = ReplyKeyboardMarkup(
+        [[KeyboardButton("🎥 Get Random Video")]], resize_keyboard=True
+    )
+    await message.reply_text("Welcome! Use the button below to get a random video:", reply_markup=keyboard)
 
-# 🔰 Callback for Random Video
-@bot.on_callback_query(filters.regex("get_random_video"))
-async def random_video_callback(client, callback_query: CallbackQuery):
-    await send_random_video(client, callback_query.message.chat.id)
-    await callback_query.answer()
+# 🔰 Listen for Button Click via Text Message
+@bot.on_message(filters.text & filters.regex("🎥 Get Random Video"))
+async def random_video_command(client, message):
+    await send_random_video(client, message.chat.id)
 
 # 🔰 Run the Bot
 if __name__ == "__main__":
