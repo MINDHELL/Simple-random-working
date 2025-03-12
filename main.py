@@ -11,13 +11,13 @@ from health_check import start_health_check
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 🔰 Environment Variables (Filled)
+# 🔰 Environment Variables (Ensure OWNER_ID is an integer)
 API_ID = "27788368"
 API_HASH = "9df7e9ef3d7e4145270045e5e43e1081"
 BOT_TOKEN = "7725707727:AAFtx6Sy-q6GgB9eaPoN2-oYPx2D6hjnc1g"
 MONGO_URL = "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 CHANNEL_ID = "-1002492623985"
-OWNER_ID = "6860316927"
+OWNER_ID = int("6860316927")  # 🔥 Ensure it's an integer
 
 # 🔰 Initialize Bot & Database
 bot = Client("video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -25,23 +25,15 @@ mongo = MongoClient(MONGO_URL)
 db = mongo["VideoBot"]
 collection = db["videos"]
 
-# 🔰 Fetch & Send a Random Video Without Forward Tag
-async def send_random_video(client, chat_id):
-    video_docs = list(collection.find())
-    if not video_docs:
-        await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
-        return
-    random_video = random.choice(video_docs)
-    
-    try:
-        await client.copy_message(chat_id=chat_id, from_chat_id=CHANNEL_ID, message_id=random_video["message_id"])
-    except Exception as e:
-        await client.send_message(chat_id, "❌ Error: Failed to send video.")
-        logger.error(f"Error sending video: {e}")
+# 🔍 Log All Messages for Debugging
+@bot.on_message(filters.text)
+async def log_messages(client, message):
+    logger.info(f"📩 Received: {message.text} from {message.from_user.id}")
 
-# 🔰 Index Videos (Fixed)
+# 🔰 Index Videos (Fixing Command Detection)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
+    logger.info(f"✅ Received /index command from {message.from_user.id}")
     await message.reply_text("🔄 Indexing videos... This may take some time.")
 
     indexed_count = 0
@@ -75,21 +67,8 @@ async def index_videos(client, message):
         await message.reply_text("❌ Error: Failed to fetch the channel details.")
         logger.error(f"Error in /index command: {e}")
 
-# 🔰 Start Command with Inline Button
-@bot.on_message(filters.command("start"))
-async def start(client, message):
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎥 Get Random Video", callback_data="get_random_video")]
-    ])
-    await message.reply_text("Welcome! Click the button below to get a random video:", reply_markup=keyboard)
-
-# 🔰 Callback for Random Video
-@bot.on_callback_query(filters.regex("get_random_video"))
-async def random_video_callback(client, callback_query: CallbackQuery):
-    await send_random_video(client, callback_query.message.chat.id)
-    await callback_query.answer()
-
 # 🔰 Run the Bot
 if __name__ == "__main__":
     threading.Thread(target=start_health_check, daemon=True).start()
+    logger.info("🚀 Bot is starting...")
     bot.run()
