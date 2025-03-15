@@ -93,4 +93,4 @@ async def send_random_video(client, message):
 bot.start()
 print("Bot is running...")
 
-bot.idle()
+bot.run()
