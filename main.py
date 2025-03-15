@@ -26,11 +26,14 @@ mongo = MongoClient(MONGO_URL)
 db = mongo["VideoBot"]
 collection = db["videos"]
 
-# 🔹 Function to Save File to DB
-async def save_file(media):
-    if not collection.find_one({"file_id": media.file_id}):
-        collection.insert_one({"file_id": media.file_id, "message_id": media.file_unique_id})
-        return True
+# 🔹 Function to Save Video to Database
+async def save_video_to_db(message):
+    if message.video:
+        video_id = message.video.file_id
+        message_id = message.id  # ✅ Fixed message_id retrieval
+        if not collection.find_one({"message_id": message_id}):
+            collection.insert_one({"file_id": video_id, "message_id": message_id})
+            return True
     return False
 
 # 🔹 Improved Indexing Function
@@ -38,9 +41,9 @@ async def index_files_to_db(client, message):
     await message.reply_text("🔄 Indexing videos... Please wait.")
 
     total, duplicate = 0, 0
-    async for msg in client.iter_messages(CHANNEL_ID):
+    async for msg in client.search_messages(CHANNEL_ID, filter="video", limit=1000):
         if msg.video:
-            saved = await save_file(msg.video)
+            saved = await save_video_to_db(msg)
             if saved:
                 total += 1
             else:
@@ -61,7 +64,6 @@ async def send_random_video(client, chat_id):
             await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
             return
 
-        random.shuffle(video_docs)
         selected_video = random.choice(video_docs)
 
         logger.info(f"🔍 Fetching video with message_id: {selected_video['message_id']}")
