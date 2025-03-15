@@ -12,13 +12,13 @@ from health_check import start_health_check
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 🔰 Environment Variables (Filled)
+# 🔰 Environment Variables
 API_ID = "27788368"
 API_HASH = "9df7e9ef3d7e4145270045e5e43e1081"
 BOT_TOKEN = "7725707727:AAFtx6Sy-q6GgB9eaPoN2-oYPx2D6hjnc1g"
 MONGO_URL = "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-CHANNEL_ID = "-1002492623985"  # Channel where videos are indexed (MUST be negative)
-OWNER_ID = "6860316927"  # Your Telegram ID
+CHANNEL_ID = -1002492623985  # Ensure it's an integer (negative for channels)
+OWNER_ID = 6860316927  # Ensure it's an integer
 
 # 🔰 Initialize Bot & Database
 bot = Client("video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -26,7 +26,7 @@ mongo = MongoClient(MONGO_URL)
 db = mongo["VideoBot"]
 collection = db["videos"]
 
-# 🔹 Function to Fetch & Send a Random Video (Fixed)
+# 🔹 Function to Fetch & Send a Random Video
 async def send_random_video(client, chat_id):
     try:
         video_docs = list(collection.find())
@@ -34,30 +34,36 @@ async def send_random_video(client, chat_id):
             await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
             return
 
-        # ✅ Shuffle to reduce repetition
-        random.shuffle(video_docs)
+        random_video = random.choice(video_docs)
+        message_id = random_video.get("message_id")
+        logger.info(f"🔍 Fetching video with message_id: {message_id}")
 
-        for _ in range(5):  # Try 5 different random videos before failing
-            random_video = random.choice(video_docs)
-            logger.info(f"🔍 Fetching video with message_id: {random_video['message_id']}")
+        # ✅ Ensure bot has access before fetching
+        try:
+            chat_info = await client.get_chat(CHANNEL_ID)
+            logger.info(f"✅ Bot has access to the channel: {chat_info.title}")
+        except PeerIdInvalid:
+            logger.error("❌ Bot does not have access to the channel. Make sure the bot is an admin!")
+            await client.send_message(chat_id, "❌ Error: Bot does not have access to the channel. Make sure the bot is an admin!")
+            return
 
-            try:
-                video_msg = await client.get_messages(CHANNEL_ID, message_ids=[random_video["message_id"]])
-                if video_msg and video_msg.video:
-                    await client.send_video(
-                        chat_id=chat_id,
-                        video=video_msg.video.file_id,
-                        caption="🎥 Here’s your random video!"
-                    )
-                    return
-            except Exception as e:
-                logger.error(f"⚠ Error fetching video: {e}")
-        
-        await client.send_message(chat_id, "⚠ Error: Could not fetch any video.")
+        # ✅ Fetch video message correctly
+        video_msgs = await client.get_messages(CHANNEL_ID, message_ids=[message_id])
 
-    except PeerIdInvalid:
-        logger.error("❌ Peer ID Invalid: Ensure the bot is an admin in the channel!")
-        await client.send_message(chat_id, "❌ Error: Bot does not have access to the channel. Make sure the bot is an admin!")
+        if not video_msgs or not isinstance(video_msgs, list) or not video_msgs[0]:
+            await client.send_message(chat_id, "⚠ Error: Could not fetch video.")
+            return
+
+        video_msg = video_msgs[0]  # ✅ Extract first message from the list
+
+        if video_msg.video:
+            await client.send_video(
+                chat_id=chat_id,
+                video=video_msg.video.file_id,
+                caption="🎥 Here’s your random video!"
+            )
+        else:
+            await client.send_message(chat_id, "⚠ Error: Video not found in the selected message.")
 
     except Exception as e:
         logger.error(f"❌ Error sending video: {e}")
@@ -70,30 +76,21 @@ async def index_videos(client, message):
     
     indexed_count = 0
     try:
-        async for msg in client.get_chat_history(CHANNEL_ID, limit=1000):  
+        async for msg in client.get_chat_history(CHANNEL_ID, limit=1000):  # ✅ Corrected method
             if msg.video:
-                collection.update_one(
-                    {"message_id": msg.id},  
-                    {"$set": {"message_id": msg.id}}, 
-                    upsert=True
-                )
-                indexed_count += 1
+                if not collection.find_one({"message_id": msg.id}):  # ✅ Prevent duplicates
+                    collection.insert_one({"message_id": msg.id})
+                    indexed_count += 1
 
         if indexed_count > 0:
             await message.reply_text(f"✅ Indexing completed! {indexed_count} videos added.")
             await client.send_message(OWNER_ID, f"📢 Successfully indexed {indexed_count} videos!")
         else:
-            await message.reply_text("⚠ No videos found in the channel. Make sure the bot has access!")
+            await message.reply_text("⚠ No new videos found in the channel.")
 
     except PeerIdInvalid:
         logger.error("❌ Bot does not have access to the channel. Make sure the bot is an admin!")
         await message.reply_text("❌ Error: Bot does not have access to the channel. Make sure the bot is an admin!")
-
-# 🔹 Command to Get Total Indexed Files
-@bot.on_message(filters.command("files") & filters.user(OWNER_ID))
-async def get_file_count(client, message):
-    count = collection.count_documents({})
-    await message.reply_text(f"📂 Total indexed videos: {count}")
 
 # 🔹 Start Command with Inline Button
 @bot.on_message(filters.command("start"))
