@@ -1,17 +1,19 @@
 import os
-import random
 import logging
-from pyrogram import Client, filters
-from pymongo import MongoClient
-from pyrogram.enums import MessagesFilter
-from flask import Flask
+import random
 import threading
+from flask import Flask
+from pyrogram import Client, filters
+from pyrogram.errors import PeerIdInvalid
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.enums import MessagesFilter  # ✅ Correct import
+from pymongo import MongoClient
 
-# ✅ Logging Setup
+# 🔰 Logging Setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ✅ Load Environment Variables
+# 🔰 Environment Variables (Filled)
 API_ID = "27788368"
 API_HASH = "9df7e9ef3d7e4145270045e5e43e1081"
 BOT_TOKEN = "7725707727:AAFtx6Sy-q6GgB9eaPoN2-oYPx2D6hjnc1g"
@@ -19,35 +21,48 @@ MONGO_URL = "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/
 CHANNEL_ID = "-1002492623985"  # Ensure it's negative
 OWNER_ID = "6860316927"  # Your Telegram ID
 
-# ✅ MongoDB Connection
-mongo_client = MongoClient(MONGO_URL)
-db = mongo_client["telegram_bot"]
+# 🔰 Initialize Bot & Database
+bot = Client("video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+mongo = MongoClient(MONGO_URL)
+db = mongo["VideoBot"]
 collection = db["videos"]
 
-# ✅ Pyrogram Client (Bot)
-bot = Client("bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# 🔹 Function to Fetch & Send a Random Video
+async def send_random_video(client, chat_id):
+    try:
+        video_docs = list(collection.find())
+        if not video_docs:
+            await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
+            return
 
-# ✅ Flask App for Health Check
-app = Flask(__name__)
+        random.shuffle(video_docs)
+        selected_video = random.choice(video_docs)
 
-@app.route("/")
-def health_check():
-    return "Bot is running!"
+        logger.info(f"🔍 Fetching video with message_id: {selected_video['message_id']}")
 
-def run_flask():
-    app.run(host="0.0.0.0", port=8080)
+        try:
+            await client.copy_message(chat_id, CHANNEL_ID, selected_video["message_id"])
+            return
+        except Exception as e:
+            logger.error(f"⚠ Error copying video: {e}")
+            await client.send_message(chat_id, "❌ Error: Could not fetch the video. Try again!")
 
-# ✅ Background Thread for Flask
-threading.Thread(target=run_flask, daemon=True).start()
+    except PeerIdInvalid:
+        logger.error("❌ Peer ID Invalid: Ensure the bot is an admin in the channel!")
+        await client.send_message(chat_id, "❌ Error: Bot does not have access to the channel. Make sure the bot is an admin!")
 
-# 🔄 **Index Videos** Command
+    except Exception as e:
+        logger.error(f"❌ Unexpected error: {e}")
+        await client.send_message(chat_id, f"❌ Unexpected error occurred: {e}")
+
+# 🔹 Command to Index Videos (Owner Only)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
-    await message.reply_text("🔄 Indexing videos... Please wait.")
-
+    await message.reply_text("🔄 Indexing videos... This may take some time.")
+    
     indexed_count = 0
     try:
-        async for msg in client.search_messages(CHANNEL_ID, filter=MessagesFilter.VIDEO, limit=1000):
+        async for msg in client.search_messages(CHANNEL_ID, filter=MessagesFilter.VIDEO, limit=1000):  # ✅ Correct filter
             if msg.video:
                 collection.update_one(
                     {"message_id": msg.id},  
@@ -56,40 +71,47 @@ async def index_videos(client, message):
                 )
                 indexed_count += 1
 
-        await message.reply_text(f"✅ Indexed {indexed_count} videos!")
-    except Exception as e:
-        logger.error(f"❌ Error indexing videos: {e}")
-        await message.reply_text("❌ Error: Failed to index videos.")
+        if indexed_count > 0:
+            await message.reply_text(f"✅ Indexing completed! {indexed_count} videos added.")
+            await client.send_message(OWNER_ID, f"📢 Successfully indexed {indexed_count} videos!")
+        else:
+            await message.reply_text("⚠ No videos found in the channel. Make sure the bot has access!")
 
-# 📂 **Show Total Indexed Files** Command
+    except PeerIdInvalid:
+        logger.error("❌ Bot does not have access to the channel. Make sure the bot is an admin!")
+        await message.reply_text("❌ Error: Bot does not have access to the channel. Make sure the bot is an admin!")
+
+# 🔹 Command to Get Total Indexed Files
 @bot.on_message(filters.command("files") & filters.user(OWNER_ID))
-async def show_file_count(client, message):
-    file_count = collection.count_documents({})
-    await message.reply_text(f"📂 Total indexed videos: {file_count}")
+async def get_file_count(client, message):
+    count = collection.count_documents({})
+    await message.reply_text(f"📂 Total indexed videos: {count}")
 
-# 🎥 **Send Random Video** Command
-@bot.on_message(filters.command("random"))
-async def send_random_video(client, message):
-    videos = list(collection.find())
-    
-    if not videos:
-        await message.reply_text("⚠ No videos found. Use /index first!")
-        return
+# 🔹 Start Command with Inline Button
+@bot.on_message(filters.command("start"))
+async def start(client, message):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎥 Get Random Video", callback_data="get_random_video")]
+    ])
+    await message.reply_text("Welcome! Click the button below to get a random video:", reply_markup=keyboard)
 
-    random_video = random.choice(videos)
-    message_id = random_video["message_id"]
+# 🔹 Callback for Random Video
+@bot.on_callback_query(filters.regex("get_random_video"))
+async def random_video_callback(client, callback_query: CallbackQuery):
+    await send_random_video(client, callback_query.message.chat.id)
+    await callback_query.answer()
 
-    try:
-        await client.copy_message(
-            chat_id=message.chat.id,
-            from_chat_id=CHANNEL_ID,
-            message_id=message_id
-        )
-    except Exception as e:
-        logger.error(f"❌ Error sending video: {e}")
-        await message.reply_text("❌ Error: Could not fetch video.")
+# 🔹 Flask Server to Fix Koyeb Health Check
+app = Flask(__name__)
 
-# ✅ Start Bot
-bot.run()
-print("Bot is running...")
+@app.route('/')
+def home():
+    return "Bot is running!"
 
+def run_flask():
+    app.run(host="0.0.0.0", port=8080, threaded=True)  # ✅ Fix Koyeb issue
+
+# 🔹 Run the Bot with Flask Server
+if __name__ == "__main__":
+    threading.Thread(target=run_flask).start()  # Start Flask in a separate thread
+    bot.run()
