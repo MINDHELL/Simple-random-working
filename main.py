@@ -28,10 +28,7 @@ collection = db["videos"]
 # 🔹 Function to Fetch & Send a Random Video (Fix: No Forward Tag)
 async def send_random_video(client, chat_id):
     try:
-        # Ensure the bot recognizes the channel
-        peer = await client.resolve_peer(CHANNEL_ID)
         video_docs = list(collection.find())
-        
         if not video_docs:
             await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
             return
@@ -39,8 +36,8 @@ async def send_random_video(client, chat_id):
         random_video = random.choice(video_docs)
         logger.info(f"🔍 Fetching video with message_id: {random_video['message_id']}")
 
-        # Fetch video from the channel
-        video_msg = await client.get_messages(peer, random_video["message_id"])
+        # Fetch video using the correct method
+        video_msg = await client.get_messages(CHANNEL_ID, message_ids=[random_video["message_id"]])
         logger.info(f"✅ Successfully fetched video: {video_msg}")
 
         if video_msg and video_msg.video:
@@ -62,8 +59,7 @@ async def index_videos(client, message):
     await message.reply_text("🔄 Indexing videos... This may take some time.")
     
     indexed_count = 0
-    peer = await client.resolve_peer(CHANNEL_ID)  # Ensure correct peer ID
-    async for msg in client.get_chat_history(peer, limit=1000):  # ✅ Fixed Iteration
+    async for msg in client.get_chat_history(CHANNEL_ID, limit=1000):  # ✅ Corrected method
         if msg.video:
             collection.update_one(
                 {"message_id": msg.id},  
