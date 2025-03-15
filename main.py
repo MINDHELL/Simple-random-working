@@ -16,7 +16,7 @@ API_HASH = "9df7e9ef3d7e4145270045e5e43e1081"
 BOT_TOKEN = "7725707727:AAFtx6Sy-q6GgB9eaPoN2-oYPx2D6hjnc1g"
 MONGO_URL = "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 CHANNEL_ID = "-1002492623985"  # Ensure it's negative
-OWNER_ID = "6860316927"  # Your Telegram ID
+OWNER_ID = int("6860316927")  # ✅ Ensure OWNER_ID is an integer
 
 # 🔰 Initialize Bot & Database
 bot = Client("video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -24,25 +24,22 @@ mongo = MongoClient(MONGO_URL)
 db = mongo["VideoBot"]
 collection = db["videos"]
 
-# ✅ Debug Test Command
+# ✅ Debug: Test Command
 @bot.on_message(filters.command("test"))
 async def test_command(client, message):
-    print("✅ Bot received /test command")
-    await message.reply_text("✅ Bot is running and responding!")
+    await message.reply_text("✅ Bot is running!")
 
-# ✅ Debugging: Check User ID
+# ✅ Debug: Check User ID
 @bot.on_message(filters.command("whoami"))
 async def whoami(client, message):
-    print(f"🆔 Your user ID: {message.from_user.id}")
     await message.reply_text(f"🆔 Your user ID: `{message.from_user.id}`")
 
-# 🔹 Command to Index Videos (Owner Only)
+# ✅ Fix: Correct Owner ID Check
 @bot.on_message(filters.command("index"))
 async def index_videos(client, message):
-    print(f"📌 Received /index command from {message.from_user.id}")  # DEBUG PRINT
+    print(f"📌 Received /index from {message.from_user.id}")  # Debug log
 
-    # ❌ Fix Owner Check: Only allow OWNER_ID
-    if message.from_user.id != OWNER_ID:
+    if int(message.from_user.id) != OWNER_ID:  # ✅ Convert to int for comparison
         await message.reply_text("❌ You are not authorized to use this command.")
         return
 
@@ -57,21 +54,18 @@ async def index_videos(client, message):
             else:
                 duplicate += 1
 
-    print(f"✅ Indexing completed! New: {total}, Duplicates: {duplicate}")  # DEBUG PRINT
     await message.reply_text(f"✅ Indexing completed!\n🆕 New videos: {total}\n⚠ Duplicates: {duplicate}")
 
-# 🔹 Command to Get Total Indexed Files
+# ✅ Fix: Correct Owner ID Check for /files
 @bot.on_message(filters.command("files"))
 async def get_file_count(client, message):
-    print(f"📌 Received /files command from {message.from_user.id}")  # DEBUG PRINT
+    print(f"📌 Received /files from {message.from_user.id}")  # Debug log
 
-    # ❌ Fix Owner Check: Only allow OWNER_ID
-    if message.from_user.id != OWNER_ID:
+    if int(message.from_user.id) != OWNER_ID:  # ✅ Convert to int for comparison
         await message.reply_text("❌ You are not authorized to use this command.")
         return
 
     count = collection.count_documents({})
-    print(f"📂 Total indexed videos: {count}")  # DEBUG PRINT
     await message.reply_text(f"📂 Total indexed videos: {count}")
 
 # 🔹 Dummy Flask Server to Fix Koyeb Health Check
@@ -86,6 +80,5 @@ def run_flask():
 
 # 🔹 Run the Bot with Flask Server
 if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()  # Start Flask in a separate thread
-    print("🚀 Bot is starting...")  # DEBUG PRINT
+    threading.Thread(target=run_flask).start()
     bot.run()
