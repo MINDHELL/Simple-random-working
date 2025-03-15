@@ -30,10 +30,22 @@ async def test_command(client, message):
     print("✅ Bot received /test command")
     await message.reply_text("✅ Bot is running and responding!")
 
+# ✅ Debugging: Check User ID
+@bot.on_message(filters.command("whoami"))
+async def whoami(client, message):
+    print(f"🆔 Your user ID: {message.from_user.id}")
+    await message.reply_text(f"🆔 Your user ID: `{message.from_user.id}`")
+
 # 🔹 Command to Index Videos (Owner Only)
-@bot.on_message(filters.command("index") & filters.user(OWNER_ID))
+@bot.on_message(filters.command("index"))
 async def index_videos(client, message):
-    print("📌 Received /index command")  # DEBUG PRINT
+    print(f"📌 Received /index command from {message.from_user.id}")  # DEBUG PRINT
+
+    # ❌ Fix Owner Check: Only allow OWNER_ID
+    if message.from_user.id != OWNER_ID:
+        await message.reply_text("❌ You are not authorized to use this command.")
+        return
+
     await message.reply_text("🔄 Indexing videos... Please wait.")
     
     total, duplicate = 0, 0
@@ -49,9 +61,15 @@ async def index_videos(client, message):
     await message.reply_text(f"✅ Indexing completed!\n🆕 New videos: {total}\n⚠ Duplicates: {duplicate}")
 
 # 🔹 Command to Get Total Indexed Files
-@bot.on_message(filters.command("files") & filters.user(OWNER_ID))
+@bot.on_message(filters.command("files"))
 async def get_file_count(client, message):
-    print("📌 Received /files command")  # DEBUG PRINT
+    print(f"📌 Received /files command from {message.from_user.id}")  # DEBUG PRINT
+
+    # ❌ Fix Owner Check: Only allow OWNER_ID
+    if message.from_user.id != OWNER_ID:
+        await message.reply_text("❌ You are not authorized to use this command.")
+        return
+
     count = collection.count_documents({})
     print(f"📂 Total indexed videos: {count}")  # DEBUG PRINT
     await message.reply_text(f"📂 Total indexed videos: {count}")
