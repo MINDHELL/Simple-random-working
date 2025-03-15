@@ -90,6 +90,6 @@ async def send_random_video(client, message):
         await message.reply_text("❌ Error: Could not fetch video.")
 
 # ✅ Start Bot
-bot.start()
+bot.run()
 print("Bot is running...")
 
