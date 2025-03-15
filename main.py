@@ -17,8 +17,8 @@ API_ID = "27788368"
 API_HASH = "9df7e9ef3d7e4145270045e5e43e1081"
 BOT_TOKEN = "7725707727:AAFtx6Sy-q6GgB9eaPoN2-oYPx2D6hjnc1g"
 MONGO_URL = "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-CHANNEL_ID = -1002492623985  # Ensure it's an integer (negative for channels)
-OWNER_ID = 6860316927  # Ensure it's an integer
+CHANNEL_ID = "-1002492623985"  # Ensure it's an integer (negative for channels)
+OWNER_ID = "6860316927"  # Ensure it's an integer
 
 # 🔰 Initialize Bot & Database
 bot = Client("video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
