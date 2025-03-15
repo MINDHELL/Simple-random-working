@@ -26,25 +26,20 @@ mongo = MongoClient(MONGO_URL)
 db = mongo["VideoBot"]
 collection = db["videos"]
 
-# 🔹 Function to Save Video to Database
-async def save_video_to_db(message):
-    if message.video:
-        video_id = message.video.file_id
-        message_id = message.id  # ✅ Fixed message_id retrieval
-        if not collection.find_one({"message_id": message_id}):
-            collection.insert_one({"file_id": video_id, "message_id": message_id})
-            return True
-    return False
+# ✅ Debug Test Command
+@bot.on_message(filters.command("test"))
+async def test_command(client, message):
+    await message.reply_text("✅ Bot is running and responding!")
 
-# 🔹 Improved Indexing Function
+# 🔹 Function to Index Videos
 async def index_files_to_db(client, message):
     await message.reply_text("🔄 Indexing videos... Please wait.")
 
     total, duplicate = 0, 0
-    async for msg in client.search_messages(CHANNEL_ID, filter="video", limit=1000):
+    async for msg in client.iter_messages(CHANNEL_ID, filter="video"):
         if msg.video:
-            saved = await save_video_to_db(msg)
-            if saved:
+            if not collection.find_one({"message_id": msg.id}):
+                collection.insert_one({"message_id": msg.id, "file_id": msg.video.file_id})
                 total += 1
             else:
                 duplicate += 1
@@ -54,7 +49,16 @@ async def index_files_to_db(client, message):
 # 🔹 Command to Index Videos (Owner Only)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
+    logger.info("📌 Indexing started...")
     await index_files_to_db(client, message)
+    logger.info("✅ Indexing completed.")
+
+# 🔹 Command to Get Total Indexed Files
+@bot.on_message(filters.command("files") & filters.user(OWNER_ID))
+async def get_file_count(client, message):
+    count = collection.count_documents({})
+    logger.info(f"📂 Total indexed videos: {count}")  # Debug log
+    await message.reply_text(f"📂 Total indexed videos: {count}")
 
 # 🔹 Function to Fetch & Send a Random Video
 async def send_random_video(client, chat_id):
@@ -64,6 +68,7 @@ async def send_random_video(client, chat_id):
             await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
             return
 
+        random.shuffle(video_docs)
         selected_video = random.choice(video_docs)
 
         logger.info(f"🔍 Fetching video with message_id: {selected_video['message_id']}")
@@ -82,12 +87,6 @@ async def send_random_video(client, chat_id):
     except Exception as e:
         logger.error(f"❌ Error sending video: {e}")
         await client.send_message(chat_id, "❌ Error: Failed to send video.")
-
-# 🔹 Command to Get Total Indexed Files
-@bot.on_message(filters.command("files") & filters.user(OWNER_ID))
-async def get_file_count(client, message):
-    count = collection.count_documents({})
-    await message.reply_text(f"📂 Total indexed videos: {count}")
 
 # 🔹 Start Command with Inline Button
 @bot.on_message(filters.command("start"))
