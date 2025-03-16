@@ -114,7 +114,7 @@ async def start(client, message):
 async def random_video_callback(client, callback_query: CallbackQuery):
     try:
         # Ensure only the owner can fetch random videos
-        if callback_query.message.chat.id != OWNER_ID:
+        if callback_query.from_user.id != OWNER_ID:
             await callback_query.answer("❌ You are not authorized to use this feature.", show_alert=True)
             return
 
@@ -136,4 +136,4 @@ def run_flask():
 # 🔹 Run the Bot with Flask Server
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()  # Start Flask in a separate thread
-    bot.run()                              
+    bot.run()
