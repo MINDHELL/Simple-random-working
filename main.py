@@ -18,7 +18,7 @@ API_HASH = "9df7e9ef3d7e4145270045e5e43e1081"
 BOT_TOKEN = "7725707727:AAFtx6Sy-q6GgB9eaPoN2-oYPx2D6hjnc1g"
 MONGO_URL = "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 CHANNEL_ID = "-1002492623985"  # Ensure it's negative
-OWNER_ID = int("6860316927")  # Your Telegram ID
+OWNER_ID = int("6860316927")  # Your Telegram ID (as an integer)
 
 # 🔰 Initialize Bot & Database
 bot = Client("video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -28,31 +28,47 @@ collection = db["videos"]
 
 # 🔹 Function to Save File to DB
 async def save_file(media):
-    if not collection.find_one({"file_id": media.file_id}):
-        collection.insert_one({"file_id": media.file_id, "message_id": media.file_unique_id})
-        return True
-    return False
+    """Saves file to MongoDB if not already present."""
+    result = collection.update_one(
+        {"file_id": media.file_id},
+        {"$set": {"message_id": media.file_unique_id}},
+        upsert=True  # Insert if not found
+    )
+    return result.upserted_id is not None  # Returns True if new, False if existing
 
-# 🔹 Improved Indexing Function Using get_messages (No Limit)
+# 🔹 Improved Indexing Function Using get_messages (Batch Processing)
 async def index_files_to_db(client, message):
     await message.reply_text("🔄 Indexing videos... Please wait.")
-    
+
     total, duplicate = 0, 0
+    last_message_id = None
 
     try:
-        # Fetch all messages from the channel without a limit
-        async for msg in client.get_messages(CHANNEL_ID):  
-            if msg.video:  # Check if the message has a video
-                saved = await save_file(msg.video)
-                if saved:
-                    total += 1
-                else:
-                    duplicate += 1
+        while True:
+            # Fetch messages in batches (200 max for bot accounts)
+            messages = await client.get_messages(
+                CHANNEL_ID, 
+                message_ids=list(range(last_message_id - 200, last_message_id)) if last_message_id else None
+            )
+
+            if not messages:
+                break  # Stop when no more messages are found
+
+            for msg in messages:
+                if msg.video:  # Check if the message has a video
+                    saved = await save_file(msg.video)
+                    if saved:
+                        total += 1
+                    else:
+                        duplicate += 1
+
+            last_message_id = messages[-1].message_id  # Move to older messages
+
+        await message.reply_text(f"✅ Indexing completed!\n🆕 New videos: {total}\n⚠ Duplicates: {duplicate}")
+
     except Exception as e:
         logger.error(f"❌ Error in /index: {str(e)}")
         await message.reply_text(f"❌ Error during indexing: {str(e)}")
-
-    await message.reply_text(f"✅ Indexing completed!\n🆕 New videos: {total}\n⚠ Duplicates: {duplicate}")
 
 # 🔹 Command to Index Videos (Owner Only)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
