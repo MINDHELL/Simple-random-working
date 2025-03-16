@@ -25,54 +25,64 @@ mongo = MongoClient(MONGO_URL)
 db = mongo["VideoBot"]
 collection = db["videos"]
 
-# 🔰 Function to fetch & send a random video
+# 🔰 Function to fetch & send a random video (Removes Forward Tag)
 async def send_random_video(client, chat_id):
     video_docs = list(collection.find())
     if not video_docs:
         await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
         return
+    
     random_video = random.choice(video_docs)
-    await client.copy_messages(chat_id=chat_id, from_chat_id=CHANNEL_ID, message_ids=random_video["message_id"])
+    try:
+        message = await client.get_messages(CHANNEL_ID, random_video["message_id"])
+        if message and message.video:
+            await client.send_video(
+                chat_id=chat_id,
+                video=message.video.file_id,  # ✅ Removes forward tag
+                caption="Thanks 😊"
+            )
+        else:
+            await client.send_message(chat_id, "⚠ The selected message is not a video.")
+    except Exception as e:
+        logger.error(f"Error sending video: {e}")
+        await client.send_message(chat_id, "⚠ Error fetching video. Try again later.")
 
-# 🔰 Fast Indexing Function
+# 🔰 Command to index videos (Owner Only)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
     await message.reply_text("🔄 Indexing videos... This may take some time.")
-
-    # ✅ Get the latest message ID
-    latest_message = await client.get_chat(CHANNEL_ID)
-    latest_id = latest_message.last_message_id if latest_message.last_message_id else 0
-
+    
     indexed_count = 0
-    batch_size = 200  # Fetch 200 messages at once
-    new_videos = []
+    batch_size = 200  # ✅ Fetch messages in batches of 200
+    last_message_id = 1  # ✅ Start from the first message
 
-    for start in range(1, latest_id, batch_size):
-        end = min(start + batch_size - 1, latest_id)
-        messages = await client.get_messages(CHANNEL_ID, range(start, end + 1))
+    while True:
+        try:
+            message_ids = list(range(last_message_id, last_message_id + batch_size))
+            messages = await client.get_messages(CHANNEL_ID, message_ids)
 
-        for msg in messages:
-            if msg and msg.video:
-                if not collection.find_one({"message_id": msg.id}):  # ✅ Skip if already indexed
-                    new_videos.append({"message_id": msg.id})
-                    indexed_count += 1
+            if not messages:
+                break  # ✅ No more messages, stop indexing
 
-        # 🔰 Bulk Insert to MongoDB for Speed
-        if new_videos:
-            collection.insert_many(new_videos)
-            new_videos = []  # Clear buffer
+            video_entries = [
+                {"message_id": msg.id}
+                for msg in messages if msg and msg.video and not collection.find_one({"message_id": msg.id})
+            ]
+
+            if video_entries:
+                collection.insert_many(video_entries)  # ✅ Bulk insert for efficiency
+                indexed_count += len(video_entries)
+
+            last_message_id += batch_size
+        except Exception as e:
+            logger.error(f"Error during indexing: {e}")
+            break  # ✅ Exit loop on error to prevent API spam
 
     if indexed_count > 0:
-        await message.reply_text(f"✅ Indexing completed! {indexed_count} new videos added.")
-        await client.send_message(OWNER_ID, f"📢 Successfully indexed {indexed_count} new videos!")
+        await message.reply_text(f"✅ Indexing completed! {indexed_count} videos added.")
+        await client.send_message(OWNER_ID, f"📢 Successfully indexed {indexed_count} videos!")
     else:
-        await message.reply_text("⚠ No new videos found in the channel.")
-
-# 🔰 Command to Check Total Indexed Videos
-@bot.on_message(filters.command("files"))
-async def total_files(client, message):
-    total_videos = collection.count_documents({})
-    await message.reply_text(f"📂 Total Indexed Videos: {total_videos}")
+        await message.reply_text("⚠ No new videos found!")
 
 # 🔰 Start Command with Inline Button
 @bot.on_message(filters.command("start"))
