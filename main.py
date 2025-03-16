@@ -33,15 +33,15 @@ async def save_file(media):
         return True
     return False
 
-# 🔹 Improved Indexing Function Using get_messages
+# 🔹 Improved Indexing Function Using get_messages (No Limit)
 async def index_files_to_db(client, message):
     await message.reply_text("🔄 Indexing videos... Please wait.")
     
     total, duplicate = 0, 0
 
     try:
-        # Get the last 100 messages (you can adjust the limit based on your needs)
-        async for msg in client.get_messages(CHANNEL_ID, limit=100):  # Use get_messages instead of iter_messages
+        # Removed the limit to fetch all messages
+        async for msg in client.get_messages(CHANNEL_ID):  # Removed limit
             if msg.video:  # Check if the message has a video
                 saved = await save_file(msg.video)
                 if saved:
