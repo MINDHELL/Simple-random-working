@@ -32,7 +32,7 @@ async def send_random_video(client, chat_id):
         await client.send_message(chat_id, "⚠ No videos available. Use /index first!")
         return
     random_video = random.choice(video_docs)
-    await client.forward_messages(chat_id=chat_id, from_chat_id=CHANNEL_ID, message_ids=random_video["message_id"])
+    await client.copy_messages(chat_id=chat_id, from_chat_id=CHANNEL_ID, message_ids=random_video["message_id"])
 
 # 🔰 Command to index videos (Owner Only)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
