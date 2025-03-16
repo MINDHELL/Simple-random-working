@@ -36,20 +36,31 @@ async def save_file(media, msg_id):
     )
     return result.upserted_id is not None  # Returns True if new, False if existing
 
-# 🔹 Fixed Indexing Function Using search_messages()
+# 🔹 Fixed Indexing Function Using get_messages()
 async def index_files_to_db(client, message):
     await message.reply_text("🔄 Indexing videos... Please wait.")
 
     total, duplicate = 0, 0
+    last_message_id = None
 
     try:
-        async for msg in client.search_messages(CHANNEL_ID, filter="video"):  # Fetch only video messages
-            if msg.video:  # Ensure it contains a video
-                saved = await save_file(msg.video, msg.message_id)  # Pass message_id
-                if saved:
-                    total += 1
-                else:
-                    duplicate += 1
+        while True:
+            if last_message_id is None:
+                messages = await client.get_messages(CHANNEL_ID, limit=200)  # Get latest messages
+            else:
+                message_ids = [msg_id for msg_id in range(last_message_id - 200, last_message_id) if msg_id > 0]
+                messages = await client.get_messages(CHANNEL_ID, message_ids=message_ids)
+
+            if not messages:
+                break  # Stop when no more messages are found
+
+            for msg in messages:
+                if msg.video:
+                    saved = await save_file(msg.video, msg.message_id)
+                    total += 1 if saved else 0
+                    duplicate += 1 if not saved else 0
+
+            last_message_id = max(1, messages[-1].message_id)  # Prevent negative message IDs
 
         await message.reply_text(f"✅ Indexing completed!\n🆕 New videos: {total}\n⚠ Duplicates: {duplicate}")
 
