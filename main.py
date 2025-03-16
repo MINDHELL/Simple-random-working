@@ -17,7 +17,7 @@ API_ID = "27788368"
 API_HASH = "9df7e9ef3d7e4145270045e5e43e1081"
 BOT_TOKEN = "7725707727:AAFtx6Sy-q6GgB9eaPoN2-oYPx2D6hjnc1g"
 MONGO_URL = "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-CHANNEL_ID = "-1002659652578"  # Ensure it's negative
+CHANNEL_ID = "-1002492623985"  # Ensure it's negative
 OWNER_ID = "6860316927"  # Your Telegram ID
 
 # 🔰 Initialize Bot & Database
@@ -90,22 +90,38 @@ async def send_random_video(client, chat_id):
 # 🔹 Command to Get Total Indexed Files
 @bot.on_message(filters.command("files") & filters.user(OWNER_ID))
 async def get_file_count(client, message):
-    count = collection.count_documents({})
-    await message.reply_text(f"📂 Total indexed videos: {count}")
+    try:
+        count = collection.count_documents({})
+        await message.reply_text(f"📂 Total indexed videos: {count}")
+    except Exception as e:
+        logger.error(f"❌ Error fetching file count: {str(e)}")
+        await message.reply_text(f"❌ Error fetching file count: {str(e)}")
 
-# 🔹 Start Command with Inline Button
-@bot.on_message(filters.command("start"))
+# 🔹 Start Command with Inline Button (Owner Only)
+@bot.on_message(filters.command("start") & filters.user(OWNER_ID))
 async def start(client, message):
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎥 Get Random Video", callback_data="get_random_video")]
-    ])
-    await message.reply_text("Welcome! Click the button below to get a random video:", reply_markup=keyboard)
+    try:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎥 Get Random Video", callback_data="get_random_video")]
+        ])
+        await message.reply_text("Welcome! Click the button below to get a random video:", reply_markup=keyboard)
+    except Exception as e:
+        logger.error(f"❌ Error in /start command: {str(e)}")
+        await message.reply_text("❌ Error starting the bot.")
 
 # 🔹 Callback for Random Video
 @bot.on_callback_query(filters.regex("get_random_video"))
 async def random_video_callback(client, callback_query: CallbackQuery):
-    await send_random_video(client, callback_query.message.chat.id)
-    await callback_query.answer()
+    try:
+        # Ensure only the owner can fetch random videos
+        if callback_query.message.chat.id != OWNER_ID:
+            await callback_query.answer("❌ You are not authorized to use this feature.", show_alert=True)
+            return
+
+        await send_random_video(client, callback_query.message.chat.id)
+        await callback_query.answer()
+    except Exception as e:
+        logger.error(f"❌ Error handling callback for random video: {str(e)}")
 
 # 🔹 Dummy Flask Server to Fix Koyeb Health Check
 app = Flask(__name__)
@@ -120,4 +136,4 @@ def run_flask():
 # 🔹 Run the Bot with Flask Server
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()  # Start Flask in a separate thread
-    bot.run()
+    bot.run()                              
