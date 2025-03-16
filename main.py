@@ -40,8 +40,8 @@ async def index_files_to_db(client, message):
     total, duplicate = 0, 0
 
     try:
-        # Removed the limit to fetch all messages
-        async for msg in client.get_messages(CHANNEL_ID):  # Removed limit
+        # Fetch all messages from the channel without a limit
+        async for msg in client.get_messages(CHANNEL_ID):  
             if msg.video:  # Check if the message has a video
                 saved = await save_file(msg.video)
                 if saved:
