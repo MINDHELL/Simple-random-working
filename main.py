@@ -27,42 +27,29 @@ db = mongo["VideoBot"]
 collection = db["videos"]
 
 # 🔹 Function to Save File to DB
-async def save_file(media):
-    """Saves file to MongoDB if not already present."""
+async def save_file(media, msg_id):
+    """Saves video to MongoDB if not already present."""
     result = collection.update_one(
         {"file_id": media.file_id},
-        {"$set": {"message_id": media.file_unique_id}},
+        {"$set": {"message_id": msg_id}},  # Store correct message_id
         upsert=True  # Insert if not found
     )
     return result.upserted_id is not None  # Returns True if new, False if existing
 
-# 🔹 Improved Indexing Function Using get_messages (Batch Processing)
+# 🔹 Fixed Indexing Function Using search_messages()
 async def index_files_to_db(client, message):
     await message.reply_text("🔄 Indexing videos... Please wait.")
 
     total, duplicate = 0, 0
-    last_message_id = None
 
     try:
-        while True:
-            # Fetch messages in batches (200 max for bot accounts)
-            messages = await client.get_messages(
-                CHANNEL_ID, 
-                message_ids=list(range(last_message_id - 200, last_message_id)) if last_message_id else None
-            )
-
-            if not messages:
-                break  # Stop when no more messages are found
-
-            for msg in messages:
-                if msg.video:  # Check if the message has a video
-                    saved = await save_file(msg.video)
-                    if saved:
-                        total += 1
-                    else:
-                        duplicate += 1
-
-            last_message_id = messages[-1].message_id  # Move to older messages
+        async for msg in client.search_messages(CHANNEL_ID, filter="video"):  # Fetch only video messages
+            if msg.video:  # Ensure it contains a video
+                saved = await save_file(msg.video, msg.message_id)  # Pass message_id
+                if saved:
+                    total += 1
+                else:
+                    duplicate += 1
 
         await message.reply_text(f"✅ Indexing completed!\n🆕 New videos: {total}\n⚠ Duplicates: {duplicate}")
 
