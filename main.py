@@ -47,22 +47,22 @@ async def send_random_video(client, chat_id):
         logger.error(f"Error sending video: {e}")
         await client.send_message(chat_id, "⚠ Error fetching video. Try again later.")
 
-# 🔰 Command to index videos (Owner Only)
+# 🔰 Command to Index Videos (Owner Only)
 @bot.on_message(filters.command("index") & filters.user(OWNER_ID))
 async def index_videos(client, message):
     await message.reply_text("🔄 Indexing videos... This may take some time.")
     
     indexed_count = 0
-    batch_size = 200  # ✅ Fetch messages in batches of 200
-    last_message_id = 1  # ✅ Start from the first message
+    batch_size = 100  # ✅ Process in batches to avoid rate limits
+    last_indexed = collection.find_one(sort=[("message_id", -1)])  # ✅ Get last indexed message
 
-    while True:
+    last_message_id = last_indexed["message_id"] if last_indexed else 1
+    current_message_id = last_message_id + batch_size
+
+    while current_message_id > last_message_id:
         try:
-            message_ids = list(range(last_message_id, last_message_id + batch_size))
+            message_ids = list(range(last_message_id, current_message_id))
             messages = await client.get_messages(CHANNEL_ID, message_ids)
-
-            if not messages:
-                break  # ✅ No more messages, stop indexing
 
             video_entries = [
                 {"message_id": msg.id}
@@ -70,19 +70,25 @@ async def index_videos(client, message):
             ]
 
             if video_entries:
-                collection.insert_many(video_entries)  # ✅ Bulk insert for efficiency
+                collection.insert_many(video_entries)  # ✅ Bulk insert
                 indexed_count += len(video_entries)
 
             last_message_id += batch_size
         except Exception as e:
             logger.error(f"Error during indexing: {e}")
-            break  # ✅ Exit loop on error to prevent API spam
+            break  # ✅ Prevent API spam
 
     if indexed_count > 0:
         await message.reply_text(f"✅ Indexing completed! {indexed_count} videos added.")
         await client.send_message(OWNER_ID, f"📢 Successfully indexed {indexed_count} videos!")
     else:
         await message.reply_text("⚠ No new videos found!")
+
+# 🔰 Command to Check Total Indexed Files (Owner Only)
+@bot.on_message(filters.command("files") & filters.user(OWNER_ID))
+async def check_files(client, message):
+    total_videos = collection.count_documents({})
+    await message.reply_text(f"📂 Total Indexed Videos: {total_videos}")
 
 # 🔰 Start Command with Inline Button
 @bot.on_message(filters.command("start"))
