@@ -1,4 +1,5 @@
 from pyrogram import Client, filters
+from config import OWNER_ID
 from pyrogram.types import Message
 from database.video_management import get_video_count
 
