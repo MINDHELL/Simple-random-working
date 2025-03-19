@@ -7,7 +7,7 @@ BOT_TOKEN = "7692429836:AAHyUFP6os1A3Hirisl5TV1O5kArGAlAEuQ"
 # MongoDB settings
 MONGO_URI = "mongodb+srv://aarshhub:6L1PAPikOnAIHIRA@cluster0.6shiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 DATABASE_NAME = "xyz"
-
+DATABASE_CHANNEL = "-1002465297334"
 # Owner/Admins
 OWNER_ID = int("6860316927")  # Your Telegram ID
 ADMINS = [OWNER_ID]  # Add more admins if needed
