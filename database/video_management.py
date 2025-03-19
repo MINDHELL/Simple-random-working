@@ -23,5 +23,9 @@ def check_quota(user_id):
     user_quota = quota_collection.find_one({"user_id": user_id})
     return user_quota["remaining"] if user_quota else 10  # Default 10
 
+def increment_video_usage(user_id):
+    """Decrements the user's remaining quota by 1."""
+    quota_collection.update_one({"user_id": user_id}, {"$inc": {"remaining": -1}}, upsert=True)
+
 def reset_quota():
     quota_collection.update_many({}, {"$set": {"remaining": 10}})
