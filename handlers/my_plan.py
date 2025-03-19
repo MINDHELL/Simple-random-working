@@ -18,3 +18,5 @@ async def my_plan_handler(client, message: Message):
         response = "❌ You don't have an active plan. Use /subscription to buy one."
 
     await message.reply_text(response, parse_mode="markdown")
+    
+    handler = my_plan_handler 
