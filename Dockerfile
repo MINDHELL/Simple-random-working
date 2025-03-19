@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 8080
 
 # Run the bot and dummy server for health check
-CMD ["bash", "-c", "python server.py & python main.py"]
+CMD ["bash", "-c", "python server.py & python bot.py"]
