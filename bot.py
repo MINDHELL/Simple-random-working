@@ -31,7 +31,7 @@ bot.add_handler(index.handler)
 bot.add_handler(delete_video.handler)
 bot.add_handler(stats.handler)
 bot.add_handler(quota.handler)
-bot.add_handler(my_plan.handler)
+bot.add_handler(my_plan.my_plan.handler)
 bot.add_handler(broadcast.handler)
 
 # Run both the bot and the dummy web server
