@@ -1,22 +1,45 @@
+import asyncio
 import logging
-from pyrogram import Client, filters
+from aiohttp import web
+from pyrogram import Client
 from config import API_ID, API_HASH, BOT_TOKEN
 from handlers import start, random_video, index, delete_video, stats, quota, my_plan, broadcast
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-bot = Client("RandomVideoBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# Initialize Pyrogram bot
+bot = Client("my_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# Register handlers
+# Dummy health check server for Koyeb
+async def health_check(request):
+    return web.Response(text="OK")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+    logging.info("Health check server running on port 8080")
+
+# Add handlers
 bot.add_handler(start.handler)
 bot.add_handler(random_video.handler)
 bot.add_handler(index.handler)
 bot.add_handler(delete_video.handler)
 bot.add_handler(stats.handler)
 bot.add_handler(quota.handler)
-bot.add_handler(my_plan.my_plan_handler)
+bot.add_handler(my_plan.handler)
 bot.add_handler(broadcast.handler)
 
+# Run both the bot and the dummy web server
+async def main():
+    await asyncio.gather(
+        bot.start(),  # Start the Telegram bot
+        start_web_server()  # Start the health check server
+    )
+
 if __name__ == "__main__":
-    bot.run()
+    asyncio.run(main())
