@@ -1,8 +1,8 @@
 import asyncio
 import logging
 from aiohttp import web
-from pyrogram import Client
-from config import API_ID, API_HASH, BOT_TOKEN
+from pyrogram import Client, idle
+from config import API_ID, API_HASH, BOT_TOKEN, OWNER_ID
 from handlers import start, random_video, index, delete_video, stats, quota, my_plan, broadcast
 
 # Configure logging
@@ -24,29 +24,38 @@ async def start_web_server():
     await site.start()
     logging.info("Health check server running on port 8080")
 
-# Add handlers
-bot.add_handler(start.handler)
-bot.add_handler(random_video.handler)
-bot.add_handler(index.handler)
-bot.add_handler(delete_video.handler)
-bot.add_handler(stats.handler)
-bot.add_handler(quota.handler)
-bot.add_handler(my_plan.handler)
-bot.add_handler(broadcast.handler)
+# Add handlers correctly
+def add_handlers():
+    bot.add_handler(start.handler)
+    bot.add_handler(random_video.handler)
+    bot.add_handler(index.handler)
+    bot.add_handler(delete_video.handler)
+    bot.add_handler(stats.handler)
+    bot.add_handler(quota.handler)
+    bot.add_handler(my_plan.handler)
+    bot.add_handler(broadcast.handler)
 
-# Run both the bot and the web server
+async def send_startup_message():
+    try:
+        await bot.send_message(OWNER_ID, "✅ Bot is successfully deployed and running!")
+        logging.info("Startup message sent to owner.")
+    except Exception as e:
+        logging.error(f"Failed to send startup message: {e}")
+
 async def main():
-    # Start the bot and web server concurrently
-    web_server_task = asyncio.create_task(start_web_server())
-    await bot.start()  # Start the bot without blocking
-    logging.info("Bot started successfully")
+    add_handlers()  # Add handlers before starting bot
+    await bot.start()  # Start bot
+    await send_startup_message()  # Notify owner bot is running
+    await start_web_server()  # Start web server
+    logging.info("Bot is running...")
 
     try:
-        await asyncio.Event().wait()  # Keep the event loop running
+        await idle()  # Keep bot running
+    except Exception as e:
+        logging.error(f"Error in idle: {e}")
     finally:
-        await bot.stop()  # Stop the bot when exiting
-        web_server_task.cancel()
-        logging.info("Bot and web server stopped")
+        await bot.stop()
+        logging.info("Bot stopped.")
 
 if __name__ == "__main__":
-    asyncio.run(main())  # Ensure proper event loop handling
+    asyncio.run(main())  # Proper event loop handling
