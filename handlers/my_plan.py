@@ -5,7 +5,7 @@ from database import get_user_plan
 # Define the handler function
 async def my_plan_handler(client, message: Message):
     user_id = message.from_user.id
-    plan_info = get_user_plan(user_id)
+    plan_info = await get_user_plan(user_id)
 
     if plan_info:
         response = (
