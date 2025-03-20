@@ -36,11 +36,17 @@ bot.add_handler(broadcast.handler)
 
 # Run both the bot and the web server
 async def main():
-    async with bot:  # Ensure proper startup and shutdown of Pyrogram bot
-        await asyncio.gather(
-            start_web_server(),  # Start the health check server
-            bot.run()  # Start the Telegram bot properly
-        )
+    # Start the bot and web server concurrently
+    web_server_task = asyncio.create_task(start_web_server())
+    await bot.start()  # Start the bot without blocking
+    logging.info("Bot started successfully")
+
+    try:
+        await asyncio.Event().wait()  # Keep the event loop running
+    finally:
+        await bot.stop()  # Stop the bot when exiting
+        web_server_task.cancel()
+        logging.info("Bot and web server stopped")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main())  # Ensure proper event loop handling
