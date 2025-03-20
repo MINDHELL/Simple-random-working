@@ -34,12 +34,13 @@ bot.add_handler(quota.handler)
 bot.add_handler(my_plan.handler)
 bot.add_handler(broadcast.handler)
 
-# Run both the bot and the dummy web server
+# Run both the bot and the web server
 async def main():
-    await asyncio.gather(
-        bot.start(),  # Start the Telegram bot
-        start_web_server()  # Start the health check server
-    )
+    async with bot:
+        await asyncio.gather(
+            start_web_server(),  # Start the health check server
+            bot.run()  # Start the Telegram bot properly
+        )
 
 if __name__ == "__main__":
     asyncio.run(main())
