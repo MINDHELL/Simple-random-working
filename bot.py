@@ -5,7 +5,12 @@ from pyrogram import Client, idle
 from config import API_ID, API_HASH, BOT_TOKEN, OWNER_ID
 from handlers.start import start_command_handler
 from handlers.stats import stats_handler
-from handlers import random_video, index, delete_video, quota, my_plan, broadcast
+from handlers.random_video import handler as random_video_handler
+from handlers.index import handler as index_handler
+from handlers.delete_video import handler as delete_video_handler
+from handlers.quota import handler as quota_handler
+from handlers.my_plan import handler as my_plan_handler
+from handlers.broadcast import handler as broadcast_handler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -33,13 +38,13 @@ async def start_web_server():
 def add_handlers():
     try:
         bot.add_handler(start_command_handler)
-        bot.add_handler(random_video.handler)
-        bot.add_handler(index.handler)
-        bot.add_handler(handler)
+        bot.add_handler(random_video_handler)
+        bot.add_handler(index_handler)
+        bot.add_handler(delete_video_handler)
         bot.add_handler(stats_handler)
         bot.add_handler(quota_handler)
         bot.add_handler(my_plan_handler)
-        bot.add_handler(broadcast.handler)
+        bot.add_handler(broadcast_handler)
         logging.info("✅ Handlers added successfully!")
     except Exception as e:
         logging.error(f"❌ Error adding handlers: {e}")
