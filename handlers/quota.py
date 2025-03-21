@@ -38,3 +38,4 @@ async def reset_quota_handler(client, message: Message):
 # Ensure handlers are registered properly
 quota_handler = quota_handler
 reset_quota_handler = reset_quota_handler
+handler = quota_handler  # Replace function_name with the actual command handler
