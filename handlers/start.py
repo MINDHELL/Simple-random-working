@@ -51,3 +51,5 @@ async def callback_handler(client: Client, query: CallbackQuery):
     except Exception as e:
         logging.error(f"Error handling callback query ({query.data}) for user {query.from_user.id}: {e}")
         await query.answer("⚠️ Something went wrong. Please try again.")
+
+handler = start_command_handler  # Replace function_name with the actual command handler
