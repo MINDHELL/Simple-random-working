@@ -3,7 +3,7 @@ import logging
 from aiohttp import web
 from pyrogram import Client, idle
 from config import API_ID, API_HASH, BOT_TOKEN, OWNER_ID
-from handlers import start, random_video, index, delete_video, stats, quota, my_plan, broadcast
+from handlers import start_command_handler, random_video, index, delete_video, stats, quota, my_plan, broadcast
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -30,7 +30,7 @@ async def start_web_server():
 # Add handlers correctly
 def add_handlers():
     try:
-        bot.add_handler(start.handler)
+        bot.add_handler(start_command_handler)
         bot.add_handler(random_video.handler)
         bot.add_handler(index.handler)
         bot.add_handler(delete_video.handler)
