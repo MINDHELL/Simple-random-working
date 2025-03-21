@@ -29,3 +29,5 @@ async def my_plan_handler(client, message: Message):
 
 # Register the command properly
 handler = Client.on_message(filters.command("my_plan"))(my_plan_handler)
+
+handler = my_plan_handler  # Replace function_name with the actual command handler
