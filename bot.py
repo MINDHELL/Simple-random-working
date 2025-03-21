@@ -33,13 +33,13 @@ async def start_web_server():
 def add_handlers():
     try:
         bot.add_handler(start_command_handler)
-        bot.add_handler(random_video.handler)
-        bot.add_handler(index.handler)
-        bot.add_handler(delete_video.handler)
+        bot.add_handler(random_video_handler)
+        bot.add_handler(index_handler)
+        bot.add_handler(delete_video_handler)
         bot.add_handler(stats_handler)
-        bot.add_handler(quota.handler)
-        bot.add_handler(my_plan.handler)
-        bot.add_handler(broadcast.handler)
+        bot.add_handler(quota_handler)
+        bot.add_handler(my_plan_handler)
+        bot.add_handler(broadcast_handler)
         logging.info("✅ Handlers added successfully!")
     except Exception as e:
         logging.error(f"❌ Error adding handlers: {e}")
