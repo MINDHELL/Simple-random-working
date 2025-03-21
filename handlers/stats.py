@@ -16,3 +16,5 @@ async def stats_handler(client: Client, message: Message):
     except Exception as e:
         logging.error(f"Error fetching video count for user {message.from_user.id}: {e}")
         await message.reply_text("⚠️ Unable to fetch database stats. Please try again later.")
+
+handler = stats_handler
