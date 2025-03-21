@@ -12,7 +12,7 @@ RULES_TEXT = "📜 *Rules:* \n\n1️⃣ Do not spam the bot. \n2️⃣ Respect o
 
 # Start Command Handler
 @Client.on_message(filters.command("start"))
-async def start_handler(client: Client, message: Message):
+async def start_command_handler(client: Client, message: Message):
     try:
         # Send Welcome Message with Inline Buttons
         await client.send_photo(
