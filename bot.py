@@ -3,7 +3,8 @@ import logging
 from aiohttp import web
 from pyrogram import Client, idle
 from config import API_ID, API_HASH, BOT_TOKEN, OWNER_ID
-from handlers import start_command_handler, random_video, index, delete_video, stats, quota, my_plan, broadcast
+from handlers.start import start_command_handler
+from handlers import random_video, index, delete_video, stats, quota, my_plan, broadcast
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
