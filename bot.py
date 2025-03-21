@@ -35,7 +35,7 @@ def add_handlers():
         bot.add_handler(start_command_handler)
         bot.add_handler(random_video.handler)
         bot.add_handler(index.handler)
-        bot.add_handler(delete_video_handler)
+        bot.add_handler(handler)
         bot.add_handler(stats_handler)
         bot.add_handler(quota_handler)
         bot.add_handler(my_plan_handler)
